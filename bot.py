@@ -1,24 +1,53 @@
-import pyowm
+import requests
 import telebot
 
-owm = pyowm.OWM('1672f972ebc3d4a485ead6db03472d37')
-bot = telebot.TeleBot("678615806:AAEEwOXyjBMvwhgnuPrVb1dsT-1rRbL0l6Y")
+url: str = 'http://api.openweathermap.org/data/2.5/weather'
+api_weather = '201b169bbf375a4dc97b9cbe54b28e5a'
+api_telegram = '1517109563:AAFDTnX1bVta62Jp3uRo8lE3k0ttmRYp4FY'
+
+bot = telebot.TeleBot(api_telegram)
+
+
+@bot.message_handler(commands=['start'])
+def welcome(message):
+    bot.send_message(message.chat.id, 'Добро пожаловать, ' + str(message.from_user.first_name) + ',' + '\n' +
+                     'чтоб узнать погоду напишите в чат название города｡◕‿ ◕｡')
+
+
+@bot.message_handler(commands=['help'])
+def welcome(message):
+    bot.send_message(message.chat.id,
+                     '/start запуск бота\n/help команды бота\nчтоб узнать погоду напишите в чат название города')
+
 
 @bot.message_handler(content_types=['text'])
-def send_echo(message):
-	observation = owm.weather_at_place( message.text )
-	w = observation.get_weather()
-	temp = w.get_temperature('celsius')["temp"]
+def test(message):
+    city_name = message.text
 
-	answer = " В городе "  + message.text + " сейчас " + w.get_detailed_status() + "\n"
-	answer += "Температура сейчас в районе " + str(temp) + "\n\n"
+    try:
+        params = {'APPID': api_weather, 'q': city_name, 'units': 'metric', 'lang': 'ru'}
+        result = requests.get(url, params=params)
+        weather = result.json()
 
-	if temp < 10:
-		answer += "Сейчас ппц как холодно одевайся как танк!"
-	elif temp < 20:
-		answer += "Сегодня холодно, оденься потеплее."
-	else:
-		answer += "Температура нормальная,одевай что угодно."
-	bot.send_message(message.chat.id, answer)
+        if weather["main"]['temp'] < 5:
+            status = "Сейчас холодно❄️!"
+        elif weather["main"]['temp'] < 10:
+            status = "Сейчас прохладно❄️!"
+        elif weather["main"]['temp'] > 25:
+            status = "🔥Сейчас жарко!"
+        else:
+            status = "Сейчас отличная температура😎!"
 
-bot.polling( none_stop = True )
+        bot.send_message(message.chat.id, "В городе " + str(weather["name"]) + " температура: " + str(
+            float(weather["main"]['temp'])) + " ℃ " + "\n" +
+                         "Максимальная температура: " + str(float(weather['main']['temp_max'])) + "℃" + "\n" +
+                         'Минимальная температура: ' + str(float(weather['main']['temp_min'])) + "℃" + "\n" +
+                         "💧Влажность:" + str(int(weather['main']['humidity'])) + "%" + "\n" +
+                         "⭐Описание: " + str(weather['weather'][0]["description"]) + "\n\n" + status)
+
+    except:
+        bot.send_message(message.chat.id, "Город " + city_name + " не найден☹")
+
+
+if __name__ == '__main__':
+    bot.polling(none_stop=True)
